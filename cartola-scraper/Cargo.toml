@@ -1,0 +1,18 @@
+[package]
+name    = "cartola-scraper"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "cartola-scraper"
+path = "src/main.rs"
+
+[dependencies]
+tokio       = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+reqwest     = { workspace = true }
+tracing     = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow      = { workspace = true }
+chrono      = { version = "0.4", features = ["serde"] }

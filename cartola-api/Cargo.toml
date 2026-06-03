@@ -1,0 +1,20 @@
+[package]
+name    = "cartola-api"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "cartola-api"
+path = "src/main.rs"
+
+[dependencies]
+tokio       = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+rusqlite    = { workspace = true }
+tracing     = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow      = { workspace = true }
+axum        = { version = "0.7", features = ["json"] }
+tower-http  = { version = "0.5", features = ["cors", "trace"] }
+chrono      = { version = "0.4", features = ["serde"] }

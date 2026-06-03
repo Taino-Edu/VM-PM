@@ -1,0 +1,119 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  TARGET: x86_64-unknown-linux-musl  # binário estático, sem dependências
+
+jobs:
+  build-rust:
+    name: Build Rust (cartola-api + cartola-scraper)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instala Rust + target musl
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            megazord/target
+          key: rust-${{ hashFiles('megazord/Cargo.lock') }}
+
+      - name: Instala cross-linker musl
+        run: sudo apt-get install -y musl-tools
+
+      - name: Build cartola-api
+        working-directory: megazord
+        run: cargo build --release --target ${{ env.TARGET }} -p cartola-api
+
+      - name: Build cartola-scraper
+        working-directory: megazord
+        run: cargo build --release --target ${{ env.TARGET }} -p cartola-scraper
+
+      - name: Upload binários Rust
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-bins
+          path: |
+            megazord/target/${{ env.TARGET }}/release/cartola-api
+            megazord/target/${{ env.TARGET }}/release/cartola-scraper
+
+  build-go:
+    name: Build Go (broker + deployer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: |
+            megazord/broker/go.sum
+            megazord/deployer/go.sum
+            megazord/watchdog/go.mod
+
+      - name: Build broker
+        working-directory: megazord/broker
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 1  # necessário para go-sqlite3
+        run: go build -ldflags="-s -w" -o broker .
+
+      - name: Build deployer
+        working-directory: megazord/deployer
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: go build -ldflags="-s -w" -o deployer .
+
+      - name: Build watchdog
+        working-directory: megazord/watchdog
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: go build -ldflags="-s -w" -o watchdog .
+
+      - name: Upload binários Go
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-bins
+          path: |
+            megazord/broker/broker
+            megazord/deployer/deployer
+            megazord/watchdog/watchdog
+
+  deploy:
+    name: Deploy na VM
+    needs: [build-rust, build-go]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixa todos os binários
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: ./bins
+
+      - name: Envia para o deployer via webhook
+        run: |
+          # Empacota os binários
+          tar -czf release.tar.gz -C bins .
+
+          # Dispara o deployer na VM
+          curl -f -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
+            -F "release=@release.tar.gz" \
+            "https://${{ secrets.VM_DOMAIN }}/deploy"
