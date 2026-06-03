@@ -27,18 +27,16 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            megazord/target
-          key: rust-${{ hashFiles('megazord/Cargo.lock') }}
+            target
+          key: rust-${{ hashFiles('Cargo.lock') }}
 
       - name: Instala cross-linker musl
         run: sudo apt-get install -y musl-tools
 
       - name: Build cartola-api
-        working-directory: megazord
         run: cargo build --release --target ${{ env.TARGET }} -p cartola-api
 
       - name: Build cartola-scraper
-        working-directory: megazord
         run: cargo build --release --target ${{ env.TARGET }} -p cartola-scraper
 
       - name: Upload binários Rust
@@ -46,11 +44,11 @@ jobs:
         with:
           name: rust-bins
           path: |
-            megazord/target/${{ env.TARGET }}/release/cartola-api
-            megazord/target/${{ env.TARGET }}/release/cartola-scraper
+            target/${{ env.TARGET }}/release/cartola-api
+            target/${{ env.TARGET }}/release/cartola-scraper
 
   build-go:
-    name: Build Go (broker + deployer)
+    name: Build Go (broker + deployer + watchdog)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,14 +56,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: megazord/broker/go.mod
+          cache-dependency-path: broker/go.mod
 
-      - name: Baixa dependências Go
-        working-directory: megazord/broker
+      - name: Baixa dependências do broker
+        working-directory: broker
         run: go mod tidy
 
       - name: Build broker
-        working-directory: megazord/broker
+        working-directory: broker
         env:
           GOOS: linux
           GOARCH: amd64
@@ -73,7 +71,7 @@ jobs:
         run: go build -ldflags="-s -w" -o broker .
 
       - name: Build deployer
-        working-directory: megazord/deployer
+        working-directory: deployer
         env:
           GOOS: linux
           GOARCH: amd64
@@ -81,7 +79,7 @@ jobs:
         run: go build -ldflags="-s -w" -o deployer .
 
       - name: Build watchdog
-        working-directory: megazord/watchdog
+        working-directory: watchdog
         env:
           GOOS: linux
           GOARCH: amd64
@@ -93,9 +91,9 @@ jobs:
         with:
           name: go-bins
           path: |
-            megazord/broker/broker
-            megazord/deployer/deployer
-            megazord/watchdog/watchdog
+            broker/broker
+            deployer/deployer
+            watchdog/watchdog
 
   deploy:
     name: Deploy na VM
@@ -110,10 +108,7 @@ jobs:
 
       - name: Envia para o deployer via webhook
         run: |
-          # Empacota os binários
           tar -czf release.tar.gz -C bins .
-
-          # Dispara o deployer na VM
           curl -f -X POST \
             -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
             -F "release=@release.tar.gz" \
