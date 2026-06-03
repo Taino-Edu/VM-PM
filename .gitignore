@@ -1,0 +1,24 @@
+# Rust — artefatos de compilação (NUNCA commitar)
+target/
+
+# Binários Go compilados localmente
+broker/broker
+deployer/deployer
+watchdog/watchdog
+
+# Secrets / chaves
+*.key
+*.pem
+.env
+.env.*
+secrets/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
