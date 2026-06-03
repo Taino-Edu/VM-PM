@@ -58,10 +58,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: |
-            megazord/broker/go.sum
-            megazord/deployer/go.sum
-            megazord/watchdog/go.mod
+          cache-dependency-path: megazord/broker/go.mod
+
+      - name: Baixa dependências Go
+        working-directory: megazord/broker
+        run: go mod tidy
 
       - name: Build broker
         working-directory: megazord/broker
